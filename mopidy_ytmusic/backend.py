@@ -36,7 +36,6 @@ class YTMusicBackend(
         self.audio = audio
         self.uri_schemes = ["ytmusic"]
         self.auth = False
-        self.oauth = False
 
         self._auto_playlist_refresh_rate = (
             config["ytmusic"]["auto_playlist_refresh"] * 60
@@ -58,18 +57,12 @@ class YTMusicBackend(
         self.stream_preference = config["ytmusic"]["stream_preference"]
         self.verify_track_url = config["ytmusic"]["verify_track_url"]
 
-        if config["ytmusic"]["auth_json"]:
-            self._ytmusicapi_auth_json = config["ytmusic"]["auth_json"]
+        if "oauth_json" in config["ytmusic"]:
+            self.api = YTMusic(auth=config["ytmusic"]["oauth_json"])
             self.auth = True
-
-        if config["ytmusic"]["oauth_json"]:
-            self._ytmusicapi_oauth_json = config["ytmusic"]["oauth_json"]
-            self.oauth = True
-
-        if self.auth and not self.oauth:
-            self.api = YTMusic(auth=self._ytmusicapi_auth_json)
-        elif self.oauth:
-            self.api = YTMusic(auth=self._ytmusicapi_oauth_json)
+        elif "auth_json" in config["ytmusic"]:
+            self.api = YTMusic(config["ytmusic"]["auth_json"])
+            self.auth = True
         else:
             self.api = YTMusic()
 
