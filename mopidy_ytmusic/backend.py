@@ -1,4 +1,3 @@
-import hashlib
 import random
 import re
 import time
@@ -6,21 +5,11 @@ import time
 import pykka
 import requests
 from mopidy import backend
-from ytmusicapi.continuations import get_continuations
-from ytmusicapi.navigation import (
-    CAROUSEL_TITLE,
-    NAVIGATION_BROWSE_ID,
-    SECTION_LIST,
-    SINGLE_COLUMN_TAB,
-    TITLE,
-    TITLE_TEXT,
-    nav,
-)
 from ytmusicapi import YTMusic
 
 from mopidy_ytmusic import logger
 
-from .library import YTMusicLibraryProvider
+from .library import YTMusicLibraryProvider, title_to_uri
 from .playback import YTMusicPlaybackProvider
 from .playlist import YTMusicPlaylistsProvider
 from .repeating_timer import RepeatingTimer
@@ -130,27 +119,17 @@ class YTMusicBackend(
     def _get_auto_playlists(self):
         try:
             logger.debug("YTMusic loading auto playlists")
-            response = self.api._send_request("browse", {})
-            tab = nav(response, SINGLE_COLUMN_TAB)
-            browse = parse_auto_playlists(nav(tab, SECTION_LIST))
-            if "continuations" in tab["sectionListRenderer"]:
-                request_func = lambda additionalParams: self.api._send_request(
-                    "browse", {}, additionalParams
-                )
-                parse_func = lambda contents: parse_auto_playlists(contents)
-                browse.extend(
-                    get_continuations(
-                        tab["sectionListRenderer"],
-                        "sectionListContinuation",
-                        100,
-                        request_func,
-                        parse_func,
-                    )
-                )
+            response = self.api.get_home(limit=7)
+                # limit needs to be >6 to usually include "Mixed for You"
+            browse = parse_auto_playlists(response)
             # Delete empty sections
-            for i in range(len(browse) - 1, 0, -1):
-                if len(browse[i]["items"]) == 0:
-                    browse.pop(i)
+            empty_sections = set()
+            for uri, section in browse.items():
+                if len(section) == 0:
+                    empty_sections.add(uri)
+
+            for uri in empty_sections:
+                browse.pop(uri)
             logger.info(
                 "YTMusic loaded %d auto playlists sections", len(browse)
             )
@@ -197,98 +176,37 @@ class YTMusicBackend(
 
 
 def parse_auto_playlists(res):
-    browse = []
+    browse = {}
     for sect in res:
-        car = []
-        if "musicImmersiveCarouselShelfRenderer" in sect:
-            car = nav(sect, ["musicImmersiveCarouselShelfRenderer"])
-        elif "musicCarouselShelfRenderer" in sect:
-            car = nav(sect, ["musicCarouselShelfRenderer"])
-        else:
-            continue
-        stitle = nav(car, CAROUSEL_TITLE + ["text"]).strip()
-        browse.append(
-            {
-                "name": stitle,
-                "uri": "ytmusic:auto:"
-                + hashlib.md5(stitle.encode("utf-8")).hexdigest(),
-                "items": [],
-            }
-        )
-        for item in nav(car, ["contents"]):
-            brId = nav(
-                item,
-                ["musicTwoRowItemRenderer"] + TITLE + NAVIGATION_BROWSE_ID,
-                True,
-            )
-            if brId is None or brId == "VLLM":
+        stitle = sect["title"]
+        section_uri = title_to_uri(stitle, 'auto')
+        browse[section_uri] = []
+        for item in sect["contents"]:
+            if item is None: # empty result
                 continue
-            pagetype = nav(
-                item,
-                [
-                    "musicTwoRowItemRenderer",
-                    "navigationEndpoint",
-                    "browseEndpoint",
-                    "browseEndpointContextSupportedConfigs",
-                    "browseEndpointContextMusicConfig",
-                    "pageType",
-                ],
-                True,
-            )
-            ititle = nav(item, ["musicTwoRowItemRenderer"] + TITLE_TEXT).strip()
-            if pagetype == "MUSIC_PAGE_TYPE_PLAYLIST":
-                if "subtitle" in item["musicTwoRowItemRenderer"]:
-                    ititle += " ("
-                    for st in item["musicTwoRowItemRenderer"]["subtitle"][
-                        "runs"
-                    ]:
-                        ititle += st["text"]
-                    ititle += ")"
-                browse[-1]["items"].append(
+            elif "playlistId" in item: # playlist result
+                browse[section_uri].append(
                     {
                         "type": "playlist",
-                        "uri": f"ytmusic:playlist:{brId}",
-                        "name": ititle,
-                    }
-                )
-            elif pagetype == "MUSIC_PAGE_TYPE_ARTIST":
-                browse[-1]["items"].append(
+                        "uri": f"ytmusic:playlist:{item['playlistId']}",
+                        "name": item["title"]
+                    })
+            elif "subscribers" in item: # artist result
+                browse[section_uri].append(
                     {
                         "type": "artist",
-                        "uri": f"ytmusic:artist:{brId}",
-                        "name": ititle + " (Artist)",
+                        "uri": f"ytmusic:artist:{item['browseId']}",
+                        "name": item['title'] + " (Artist)"
+                    })
+            elif "year" in item: # album result
+                browse[section_uri].append(
+                    {
+                        "type": "album",
+                        "uri": f"ytmusic:album:{item['browseId']}",
+                        "name": f"{item['year']} - {item['title']} (Album)"
                     }
                 )
-            elif pagetype == "MUSIC_PAGE_TYPE_ALBUM":
-                artist = nav(
-                    item,
-                    ["musicTwoRowItemRenderer", "subtitle", "runs", -1, "text"],
-                    True,
-                )
-                ctype = nav(
-                    item,
-                    ["musicTwoRowItemRenderer", "subtitle", "runs", 0, "text"],
-                    True,
-                )
-                if artist is not None:
-                    browse[-1]["items"].append(
-                        {
-                            "type": "album",
-                            "uri": f"ytmusic:album:{brId}",
-                            "name": artist
-                            + " - "
-                            + ititle
-                            + " ("
-                            + ctype
-                            + ")",
-                        }
-                    )
-                else:
-                    browse[-1]["items"].append(
-                        {
-                            "type": "album",
-                            "uri": f"ytmusic:album:{brId}",
-                            "name": ititle + " (" + ctype + ")",
-                        }
-                    )
+            # ignoring song quick-picks here
+
+
     return browse

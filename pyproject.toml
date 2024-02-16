@@ -1,5 +1,5 @@
 [tool.black]
-target-version = ["py37", "py38"]
+target-version = ["py38"]
 line-length = 80
 
 [tool.isort]
@@ -13,16 +13,16 @@ sections = "FUTURE,STDLIB,THIRDPARTY,FIRSTPARTY,TESTS,LOCALFOLDER"
 
 [tool.poetry]
 name = "Mopidy-YTMusic"
-version = "0.3.8"
+version = "0.3.9"
 description = "Mopidy extension for playling music/managing playlists in Youtube Music"
 authors = ["Ozymandias (Tomas Ravinskas) <tomas.rav@gmail.com>"]
 license = "Apache-2.0"
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = "^3.8"
 Mopidy = "^3"
-pytube = "^12.1.0"
-ytmusicapi = ">=0.22.0, <0.30.0"
+pytube = ">=12.1.0"
+ytmusicapi = ">=1.0"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^3.8.4"
@@ -30,7 +30,7 @@ setuptools = "^51.0.0"
 Sphinx = "^3.3.1"
 poetry2setup = "^1.0.0"
 isort = "^5"
-black = { version = "*", allow-prereleases = true }
+black = "*"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
