@@ -20,9 +20,9 @@ class YTMusicPlaybackProvider(backend.PlaybackProvider):
         self.Youtube_Player_URL = playerurl
         response = requests.get("https://music.youtube.com" + playerurl)
         m = re.search(r"signatureTimestamp[:=](\d+)", response.text)
+        self.PyTubeCipher = Cipher(js=response.text)
         if m:
             self.signatureTimestamp = m.group(1)
-            self.PyTubeCipher = Cipher(js=response.text)
             logger.debug(
                 "YTMusic updated signatureTimestamp to %s",
                 self.signatureTimestamp,

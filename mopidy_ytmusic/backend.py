@@ -75,7 +75,7 @@ class YTMusicBackend(
 
         self.playback = YTMusicPlaybackProvider(audio=audio, backend=self)
         self.library = YTMusicLibraryProvider(backend=self)
-        if self.auth:
+        if self.auth or self.oauth:
             self.playlists = YTMusicPlaylistsProvider(backend=self)
 
     def on_start(self):
