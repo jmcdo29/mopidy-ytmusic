@@ -13,16 +13,16 @@ sections = "FUTURE,STDLIB,THIRDPARTY,FIRSTPARTY,TESTS,LOCALFOLDER"
 
 [tool.poetry]
 name = "Mopidy-YTMusic"
-version = "0.3.8"
+version = "0.3.9"
 description = "Mopidy extension for playling music/managing playlists in Youtube Music"
 authors = ["Ozymandias (Tomas Ravinskas) <tomas.rav@gmail.com>"]
 license = "Apache-2.0"
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = "^3.9"
 Mopidy = "^3"
-pytube = "^12.1.0"
-ytmusicapi = ">=0.22.0, <0.30.0"
+pytube = "^15.0.0"
+ytmusicapi = ">=1.0"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^3.8.4"
